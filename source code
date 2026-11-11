@@ -1,0 +1,383 @@
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <limits>
+#include <climits>
+using namespace std;
+
+// TASK 1 & 2: OBJECTS AND CONSTANTS
+enum class Zone { Inner=0, Middle=1, Outer=2, Airport=3 };
+const long long BASE_FARE[4]={1000,2000,3000,6000};
+const int PEAK_SURCHARGE=20;
+const int WEEKEND_DISCOUNT=10;
+const long long MIN_BALANCE=5000;
+
+struct Passenger {
+    string name, category;
+};
+struct Journey {
+    Zone zone;
+    int hour;
+    bool weekend;
+};
+
+// TASK 7: SMART CARD CLASS
+class SmartCard {
+private:
+    long long balance;
+public:
+    SmartCard(long long amount) {
+        balance=(amount>=0)?amount:0;
+    }
+    bool canTravel(long long fare) const {
+        return fare>=0 && balance>=fare && balance-fare>=MIN_BALANCE;
+    }
+    bool deduct(long long fare) {
+        if(!canTravel(fare)) return false;
+        balance-=fare;
+        return true;
+    }
+    bool recharge(long long amount) {
+        if(amount<=0 || balance>LLONG_MAX-amount) return false;
+        balance+=amount;
+        return true;
+    }
+    long long getBalance() const {
+        return balance;
+    }
+};
+
+// TASK 12: MONTHLY PASS CLASS
+class MonthlyPass {
+private:
+    Zone firstZone, secondZone;
+public:
+    MonthlyPass(Zone first, Zone second) {
+        firstZone=first;
+        secondZone=second;
+    }
+    bool covers(Zone zone) const {
+        return zone==firstZone || zone==secondZone;
+    }
+};
+
+// COMMON FARE FUNCTIONS
+bool validZone(Zone zone) {
+    int index=static_cast<int>(zone);
+    return index>=0 && index<4;
+}
+bool isPeakHour(int hour) {
+    return (hour>=8 && hour<10) || (hour>=17 && hour<20);
+}
+
+// TASK 5, 6, 9 AND 11: ORIGINAL FARE CALCULATION
+long long calculateOriginalFare(Zone zone,int hour) {
+    if(!validZone(zone) || hour<0 || hour>23) return -1;
+    long long fare=0;
+    switch(zone) {
+        case Zone::Inner: fare=BASE_FARE[0]; break;
+        case Zone::Middle: fare=BASE_FARE[1]; break;
+        case Zone::Outer: fare=BASE_FARE[2]; break;
+        case Zone::Airport: fare=BASE_FARE[3]; break;
+        default: return -1;
+    }
+    if(isPeakHour(hour))
+        fare+=fare*PEAK_SURCHARGE/100;
+    return fare;
+}
+
+// TASK 12: REVISED FARE CALCULATION
+long long calculateRevisedFare(Zone zone,int hour,bool weekend,const MonthlyPass &pass) {
+    if(!validZone(zone) || hour<0 || hour>23) return -1;
+    if(pass.covers(zone)) return 0;
+    int index=static_cast<int>(zone);
+    long long fare=BASE_FARE[index];
+    if(weekend)
+        fare=fare*(100-WEEKEND_DISCOUNT)/100;
+    else if(isPeakHour(hour))
+        fare+=fare*PEAK_SURCHARGE/100;
+    return fare;
+}
+
+void printMoney(long long paise) {
+    cout<<"Rs "<<paise/100<<"."<<setw(2)<<setfill('0')<<paise%100<<setfill(' ');
+}
+
+// TASK 1: OBJECT-ORIENTED ANALYSIS
+void task1() {
+    cout<<"\nTASK 1: OBJECTS AND OOP\n";
+    Passenger p;
+    p.name="Sample Passenger";
+    p.category="Regular";
+    Journey j;
+    j.zone=Zone::Middle;
+    j.hour=9;
+    j.weekend=false;
+    SmartCard card(10000);
+    cout<<"Passenger: "<<p.name<<endl;
+    cout<<"Category: "<<p.category<<endl;
+    cout<<"Journey Zone: "<<static_cast<int>(j.zone)<<endl;
+    cout<<"Journey Hour: "<<j.hour<<endl;
+    long long fare=calculateOriginalFare(j.zone,j.hour);
+    if(card.deduct(fare))
+        cout<<"Journey accepted. Fare: "<<fare<<" paise\n";
+    else
+        cout<<"Journey denied\n";
+    cout<<"Balance: "<<card.getBalance()<<" paise\n";
+}
+
+// TASK 2: CONSTANTS AND ENUM
+void task2() {
+    cout<<"\nTASK 2: CONSTANTS AND ENUM\n";
+    cout<<"Inner Fare: "<<BASE_FARE[0]<<" paise\n";
+    cout<<"Middle Fare: "<<BASE_FARE[1]<<" paise\n";
+    cout<<"Outer Fare: "<<BASE_FARE[2]<<" paise\n";
+    cout<<"Peak Surcharge: "<<PEAK_SURCHARGE<<"%\n";
+    cout<<"Minimum Balance: "<<MIN_BALANCE<<" paise\n";
+    cout<<"Zone uses enum class for type safety.\n";
+}
+
+// TASK 3: DATA TYPES
+void task3() {
+    cout<<"\nTASK 3: DATA TYPES\n";
+    cout<<"sizeof(bool): "<<sizeof(bool)<<endl;
+    cout<<"sizeof(char): "<<sizeof(char)<<endl;
+    cout<<"sizeof(int): "<<sizeof(int)<<endl;
+    cout<<"sizeof(unsigned int): "<<sizeof(unsigned int)<<endl;
+    cout<<"sizeof(long long): "<<sizeof(long long)<<endl;
+    cout<<"sizeof(float): "<<sizeof(float)<<endl;
+    cout<<"sizeof(double): "<<sizeof(double)<<endl;
+    cout<<"INT_MIN: "<<INT_MIN<<endl;
+    cout<<"INT_MAX: "<<INT_MAX<<endl;
+    cout<<"LLONG_MAX: "<<LLONG_MAX<<endl;
+    cout<<"3,000,000 journeys x Rs 10 = "<<3000000LL*1000LL<<" paise\n";
+    cout<<setprecision(17);
+    cout<<"0.1 + 0.2 using double: "<<0.1+0.2<<endl;
+    cout<<"10 + 20 integer paise: "<<10+20<<" paise\n";
+    cout<<setprecision(6);
+}
+
+// TASK 4: TYPE CONVERSIONS
+void task4() {
+    cout<<"\nTASK 4: TYPE CONVERSIONS\n";
+    int a=7,b=2;
+    double c=a/b;
+    double d=static_cast<double>(a)/b;
+    cout<<c<<" "<<d<<endl;
+    char ch='A'+2;
+    cout<<ch<<" "<<ch+1<<endl;
+    bool flag=5;
+    cout<<flag<<" "<<boolalpha<<flag<<noboolalpha<<endl;
+    unsigned int u=1;
+    int s=-1;
+    cout<<(s<u?"s < u":"s >= u")<<endl;
+    cout<<"Brace initialization prevents narrowing conversions.\n";
+}
+
+// TASK 5: OPERATORS
+void task5() {
+    cout<<"\nTASK 5: OPERATORS\n";
+    int x=5,y=3;
+    cout<<x+y*2<<" "<<(x+y)*2<<endl;
+    int z=x+++ ++y;
+    cout<<z<<" "<<x<<" "<<y<<endl;
+    cout<<(x>y?x:y)<<" "<<x%4*2<<endl;
+    cout<<10/3<<" "<<10%3<<" "<<-10/3<<" "<<-10%3<<endl;
+    int k=0;
+    for(int i=0;i<10;i+=3) k+=i;
+    cout<<k<<endl;
+    cout<<boolalpha;
+    cout<<"08:00 peak = "<<isPeakHour(8)<<endl;
+    cout<<"10:00 peak = "<<isPeakHour(10)<<endl;
+    cout<<"17:00 peak = "<<isPeakHour(17)<<endl;
+    cout<<"20:00 peak = "<<isPeakHour(20)<<endl;
+    cout<<noboolalpha;
+}
+
+// TASK 6: CONTROL STRUCTURES
+void task6() {
+    cout<<"\nTASK 6: CONTROL STRUCTURES\n";
+    SmartCard card(10000);
+    Journey trips[3];
+    trips[0].zone=Zone::Inner; trips[0].hour=12; trips[0].weekend=false;
+    trips[1].zone=Zone::Outer; trips[1].hour=18; trips[1].weekend=false;
+    trips[2].zone=Zone::Middle; trips[2].hour=12; trips[2].weekend=false;
+    for(int i=0;i<3;i++) {
+        long long fare=calculateOriginalFare(trips[i].zone,trips[i].hour);
+        if(card.deduct(fare)) {
+            cout<<"Fare ";
+            printMoney(fare);
+        } else cout<<"Denied (low balance)";
+        cout<<" balance Rs "<<card.getBalance()/100<<endl;
+    }
+}
+
+// TASK 7: PROCEDURAL VS OOP
+long long proceduralBalance=10000;
+bool proceduralCanTravel(long long fare) {
+    return fare>=0 && proceduralBalance>=fare && proceduralBalance-fare>=MIN_BALANCE;
+}
+void proceduralDeduct(long long fare) {
+    if(proceduralCanTravel(fare)) {
+        proceduralBalance-=fare;
+        cout<<"Procedural: Journey successful\n";
+    } else cout<<"Procedural: Journey denied\n";
+}
+void task7() {
+    cout<<"\nTASK 7: PROCEDURAL VS OOP\n";
+    proceduralBalance=10000;
+    proceduralDeduct(2000);
+    cout<<"Procedural balance: "<<proceduralBalance<<" paise\n";
+    SmartCard card(10000);
+    if(card.deduct(2000)) cout<<"OOP: Journey successful\n";
+    else cout<<"OOP: Journey denied\n";
+    cout<<"OOP balance: "<<card.getBalance()<<" paise\n";
+    if(!card.recharge(-500)) cout<<"Negative recharge rejected\n";
+}
+
+// TASK 8: SAFE INPUT AND OUTPUT
+bool readInteger(const string &prompt,int &value) {
+    cout<<prompt;
+    if(cin>>value) return true;
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(),'\n');
+    return false;
+}
+void task8() {
+    cout<<"\nTASK 8: SAFE INPUT AND OUTPUT\n";
+    int hour;
+    if(!readInteger("Enter hour (0-23): ",hour)) {
+        cout<<"Invalid input. Enter a number.\n";
+        return;
+    }
+    if(hour<0 || hour>23) {
+        cout<<"Hour out of range.\n";
+        return;
+    }
+    cout<<"Accepted hour: "<<hour<<endl;
+    cout<<"Formatted sample fare: ";
+    printMoney(1250);
+    cout<<endl;
+}
+
+// TASK 9: FARE TESTING
+void task9() {
+    cout<<"\nTASK 9: FARE TESTING\n";
+    struct TestCase {
+        string name;
+        Zone zone;
+        int hour;
+        long long expected;
+    };
+    TestCase tests[8]={
+        {"Inner off-peak",Zone::Inner,7,1000},
+        {"Inner 08:00",Zone::Inner,8,1200},
+        {"Inner 10:00",Zone::Inner,10,1000},
+        {"Middle off-peak",Zone::Middle,12,2000},
+        {"Middle 17:00",Zone::Middle,17,2400},
+        {"Middle 20:00",Zone::Middle,20,2000},
+        {"Outer off-peak",Zone::Outer,12,3000},
+        {"Outer peak",Zone::Outer,18,3600}
+    };
+    int passed=0;
+    for(int i=0;i<8;i++) {
+        long long actual=calculateOriginalFare(tests[i].zone,tests[i].hour);
+        bool ok=actual==tests[i].expected;
+        if(ok) passed++;
+        cout<<tests[i].name<<" | Expected: "<<tests[i].expected
+            <<" | Actual: "<<actual<<" | "<<(ok?"PASS":"FAIL")<<endl;
+    }
+    cout<<"Passed: "<<passed<<"/8\n";
+    SmartCard exact50(6000),below50(5900);
+    cout<<boolalpha;
+    cout<<"Rs 60 balance, Rs 10 fare allowed: "<<exact50.canTravel(1000)<<endl;
+    cout<<"Rs 59 balance, Rs 10 fare allowed: "<<below50.canTravel(1000)<<endl;
+    cout<<noboolalpha;
+    long long fares[5]={1000,2400,3000,1200,3000};
+    long long total=0;
+    for(int i=0;i<5;i++) total+=fares[i];
+    cout<<"Five-journey total: ";
+    printMoney(total);
+    cout<<" (Expected Rs 106.00)\n";
+    cout<<"Unknown zone rejected: "
+        <<(calculateOriginalFare(static_cast<Zone>(9),12)==-1?"PASS":"FAIL")<<endl;
+    SmartCard rechargeCard(10000);
+    cout<<"Negative recharge rejected: "
+        <<(!rechargeCard.recharge(-100)?"PASS":"FAIL")<<endl;
+}
+
+// TASK 10: COLLECTION COMPARISON
+void task10() {
+    cout<<"\nTASK 10: COLLECTION COMPARISON\n";
+    long long counts[3]={20000,500000,3000000};
+    for(int i=0;i<3;i++) {
+        long long integerTotal=counts[i]*1000LL;
+        double doubleTotal=static_cast<double>(counts[i])*10.0;
+        cout<<"Journeys: "<<counts[i]<<endl;
+        cout<<"Integer total: "<<integerTotal<<" paise\n";
+        cout<<fixed<<setprecision(2);
+        cout<<"Double total: Rs "<<doubleTotal<<endl;
+    }
+    cout<<"3,000,000,000 exceeds INT_MAX: "
+        <<boolalpha<<(3000000000LL>INT_MAX)<<noboolalpha<<endl;
+    cout<<defaultfloat;
+}
+
+// TASK 11: FINAL DESIGN
+void task11() {
+    cout<<"\nTASK 11: FINAL DESIGN\n";
+    SmartCard card(10000);
+    long long fare=calculateOriginalFare(Zone::Middle,12);
+    if(card.deduct(fare)) cout<<"Payment accepted\n";
+    else cout<<"Payment denied\n";
+    cout<<"Remaining balance: ";
+    printMoney(card.getBalance());
+    cout<<endl;
+    cout<<"Recommended: integer paise, long long, enum class, centralized fares and private SmartCard balance.\n";
+}
+
+// TASK 12: DESIGN CHALLENGE
+void task12() {
+    cout<<"\nTASK 12: DESIGN CHALLENGE\n";
+    SmartCard card(20000);
+    MonthlyPass pass(Zone::Inner,Zone::Middle);
+    Journey trips[3];
+    trips[0].zone=Zone::Inner; trips[0].hour=9; trips[0].weekend=false;
+    trips[1].zone=Zone::Airport; trips[1].hour=9; trips[1].weekend=false;
+    trips[2].zone=Zone::Outer; trips[2].hour=18; trips[2].weekend=true;
+    for(int i=0;i<3;i++) {
+        long long fare=calculateRevisedFare(trips[i].zone,trips[i].hour,trips[i].weekend,pass);
+        cout<<"Calculated fare: ";
+        printMoney(fare);
+        if(card.deduct(fare)) cout<<" | Journey successful\n";
+        else cout<<" | Journey denied (minimum balance rule)\n";
+    }
+    cout<<"Final balance: ";
+    printMoney(card.getBalance());
+    cout<<endl;
+    cout<<"Airport weekend fare: ";
+    printMoney(calculateRevisedFare(Zone::Airport,18,true,pass));
+    cout<<endl;
+}
+
+// MAIN FUNCTION
+int main() {
+    cout<<"============================================\n";
+    cout<<"CITY METRO SMART-CARD SYSTEM\n";
+    cout<<"ASSIGNMENT 1 - ALL TASKS 1 TO 12\n";
+    cout<<"============================================\n";
+    task1();
+    task2();
+    task3();
+    task4();
+    task5();
+    task6();
+    task7();
+    task8();
+    task9();
+    task10();
+    task11();
+    task12();
+    cout<<"\nALL TASKS COMPLETED\n";
+    return 0;
+}
