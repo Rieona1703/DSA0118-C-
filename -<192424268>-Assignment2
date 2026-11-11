@@ -1,0 +1,602 @@
+
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <cstdlib>
+#include <chrono>
+using namespace std;
+using namespace chrono;
+
+// TASK 1 - CALL BY VALUE, REFERENCE AND POINTER
+
+void applyByValue(long long fee, int percent)
+{
+    fee -= fee * percent / 100;
+}
+
+void applyByReference(long long& fee, int percent)
+{
+    fee -= fee * percent / 100;
+}
+
+void applyByPointer(long long* fee, int percent)
+{
+    *fee -= (*fee) * percent / 100;
+}
+
+void change(int a, int& b, int* c)
+{
+    a += 10;
+    b += 10;
+    *c += 10;
+}
+
+int& bigger(int& p, int& q)
+{
+    return p > q ? p : q;
+}
+
+void show(int x, int y = 5, int z = 10)
+{
+    cout << x + y + z << " ";
+}
+
+void task1()
+{
+    cout << "\n========== TASK 1 ==========\n";
+
+    long long fee1 = 45000;
+    long long fee2 = 45000;
+    long long fee3 = 45000;
+
+    applyByValue(fee1, 10);
+    applyByReference(fee2, 10);
+    applyByPointer(&fee3, 10);
+
+    cout << "Call by Value: " << fee1 << endl;
+    cout << "Call by Reference: " << fee2 << endl;
+    cout << "Call by Pointer: " << fee3 << endl;
+
+    int a = 1, b = 2, c = 3;
+
+    change(a, b, &c);
+    cout << "After change: " << a << " " << b << " " << c << endl;
+
+    bigger(a, c) = 100;
+    cout << "After bigger: " << a << " " << c << endl;
+
+    cout << "Default arguments: ";
+    show(1);
+    show(1, 2);
+    show(1, 2, 3);
+    cout << endl;
+}
+
+// TASK 2 - RETURN BY REFERENCE
+
+int highestIndex(int marks[], int size)
+{
+    int index = 0;
+
+    for (int i = 1; i < size; i++)
+    {
+        if (marks[i] > marks[index])
+            index = i;
+    }
+
+    return index;
+}
+
+int& highestMark(int marks[], int size)
+{
+    return marks[highestIndex(marks, size)];
+}
+
+const int& highestMarkConst(int marks[], int size)
+{
+    return marks[highestIndex(marks, size)];
+}
+
+int highestMarkCopy(int marks[], int size)
+{
+    return marks[highestIndex(marks, size)];
+}
+
+int* highestPointer(int marks[], int size)
+{
+    return &marks[highestIndex(marks, size)];
+}
+
+void task2()
+{
+    cout << "\n========== TASK 2 ==========\n";
+
+    int marks[5] = {75, 98, 87, 91, 85};
+
+    cout << "Original Highest Mark: "
+         << highestMark(marks, 5) << endl;
+
+    highestMark(marks, 5) += 2;
+
+    cout << "After Moderation: "
+         << highestMark(marks, 5) << endl;
+
+    cout << "Const Reference: "
+         << highestMarkConst(marks, 5) << endl;
+
+    cout << "Copy: "
+         << highestMarkCopy(marks, 5) << endl;
+
+    int index = highestIndex(marks, 5);
+    cout << "Using Index: " << marks[index] << endl;
+
+    int* ptr = highestPointer(marks, 5);
+    cout << "Using Pointer: " << *ptr << endl;
+
+    cout << "Dangling references are unsafe and avoided.\n";
+}
+
+// TASK 3 - DEFAULT ARGUMENTS AND OVERLOADING
+
+struct Parcel
+{
+    double weight;
+    bool express;
+    bool insured;
+};
+
+double calculateCharge(double weight, bool express, bool insured)
+{
+    double amount = 40 + weight * 20;
+
+    if (express)
+        amount += 30;
+
+    if (insured)
+        amount += 15;
+
+    return amount;
+}
+
+double charge(int grams, bool express = false, bool insured = false)
+{
+    return calculateCharge(grams / 1000.0, express, insured);
+}
+
+double charge(double kg, bool express = false, bool insured = false)
+{
+    return calculateCharge(kg, express, insured);
+}
+
+double charge(const Parcel& p)
+{
+    return calculateCharge(p.weight, p.express, p.insured);
+}
+
+void task3()
+{
+    cout << "\n========== TASK 3 ==========\n";
+
+    cout << fixed << setprecision(2);
+
+    cout << "2 grams: " << charge(2) << endl;
+    cout << "2.0f kg: " << charge(2.0f) << endl;
+    cout << "2.0 kg: " << charge(2.0) << endl;
+    cout << "500 grams: " << charge(500) << endl;
+    cout << "Express Delivery: " << charge(2, true) << endl;
+
+    Parcel p = {2.5, false, true};
+
+    cout << "Parcel Charge: " << charge(p) << endl;
+}
+
+// TASK 4 - CLASS WITH ARRAY
+
+class SavingsAccount
+{
+private:
+    int accountNumber;
+    double balance;
+    double transactions[10];
+    int count;
+
+    void addTransaction(double amount)
+    {
+        if (count < 10)
+        {
+            transactions[count] = amount;
+            count++;
+        }
+        else
+        {
+            for (int i = 0; i < 9; i++)
+                transactions[i] = transactions[i + 1];
+
+            transactions[9] = amount;
+        }
+    }
+
+public:
+    SavingsAccount(int accNo, double initialBalance)
+    {
+        accountNumber = accNo;
+        balance = initialBalance;
+        count = 0;
+    }
+
+    void deposit(double amount);
+    void withdraw(double amount);
+    void miniStatement();
+};
+
+void SavingsAccount::deposit(double amount)
+{
+    if (amount > 0)
+    {
+        balance += amount;
+        addTransaction(amount);
+        cout << "Deposited: " << amount << endl;
+    }
+    else
+    {
+        cout << "Invalid deposit\n";
+    }
+}
+
+void SavingsAccount::withdraw(double amount)
+{
+    if (amount > 0 && amount <= balance)
+    {
+        balance -= amount;
+        addTransaction(-amount);
+        cout << "Withdrawn: " << amount << endl;
+    }
+    else
+    {
+        cout << "Invalid withdrawal\n";
+    }
+}
+
+void SavingsAccount::miniStatement()
+{
+    cout << "\nAccount Number: " << accountNumber << endl;
+    cout << "Balance: " << balance << endl;
+    cout << "Last Transactions:\n";
+
+    for (int i = 0; i < count; i++)
+    {
+        if (transactions[i] >= 0)
+            cout << "Deposit: " << transactions[i] << endl;
+        else
+            cout << "Withdrawal: " << -transactions[i] << endl;
+    }
+}
+
+void task4()
+{
+    cout << "\n========== TASK 4 ==========\n";
+
+    SavingsAccount account(1001, 5000);
+
+    account.deposit(1000);
+    account.withdraw(500);
+    account.deposit(2000);
+    account.withdraw(300);
+    account.deposit(1500);
+    account.withdraw(200);
+    account.deposit(800);
+    account.withdraw(400);
+    account.deposit(600);
+    account.withdraw(100);
+    account.deposit(2500);
+
+    account.miniStatement();
+}
+
+// TASK 5 - STATIC MEMBERS AND OBJECT ARRAYS
+
+class Token
+{
+private:
+    static int next;
+    int id;
+
+public:
+    Token()
+    {
+        id = ++next;
+    }
+
+    int get() const
+    {
+        return id;
+    }
+
+    static int issued()
+    {
+        return next - 100;
+    }
+};
+
+int Token::next = 100;
+
+class BusTicket
+{
+private:
+    static int issued;
+    static const int CAPACITY = 3;
+
+    int seat;
+    string name;
+
+public:
+    explicit BusTicket(const string& n)
+    {
+        name = n;
+        seat = 0;
+
+        if (issued < CAPACITY)
+        {
+            issued++;
+            seat = issued;
+        }
+    }
+
+    static int count()
+    {
+        return issued;
+    }
+
+    void print() const
+    {
+        cout << name << ": ";
+
+        if (seat != 0)
+            cout << "Seat " << seat;
+        else
+            cout << "Waiting";
+
+        cout << endl;
+    }
+};
+
+int BusTicket::issued = 0;
+
+void task5()
+{
+    cout << "\n========== TASK 5 ==========\n";
+
+    Token counter[3];
+    Token extra;
+
+    cout << "Token Output: "
+         << counter[0].get() << " "
+         << counter[2].get() << " "
+         << extra.get() << " "
+         << Token::issued() << endl;
+
+    BusTicket trip[4] = {
+        BusTicket("Asha"),
+        BusTicket("Bala"),
+        BusTicket("Chitra"),
+        BusTicket("Dev")
+    };
+
+    for (const BusTicket& t : trip)
+        t.print();
+
+    cout << "Issued Seats: " << BusTicket::count() << endl;
+}
+
+// TASK 6 - FRIEND AND INLINE FUNCTIONS
+
+class Time
+{
+private:
+    int h, m;
+
+public:
+    Time(int hh, int mm)
+    {
+        h = hh;
+        m = mm;
+    }
+
+    friend int minutesBetween(const Time& a, const Time& b);
+    friend bool earlier(const Time& a, const Time& b);
+};
+
+inline int minutesBetween(const Time& a, const Time& b)
+{
+    int time1 = a.h * 60 + a.m;
+    int time2 = b.h * 60 + b.m;
+
+    return abs(time1 - time2);
+}
+
+inline bool earlier(const Time& a, const Time& b)
+{
+    int time1 = a.h * 60 + a.m;
+    int time2 = b.h * 60 + b.m;
+
+    return time1 < time2;
+}
+
+void task6()
+{
+    cout << "\n========== TASK 6 ==========\n";
+
+    Time departure(9, 45);
+    Time arrival(13, 10);
+
+    cout << boolalpha;
+
+    cout << "Minutes Between: "
+         << minutesBetween(departure, arrival) << endl;
+
+    cout << "Arrival Earlier: "
+         << earlier(arrival, departure) << endl;
+
+    Time morning(11, 30);
+    Time afternoon(12, 30);
+
+    cout << "Across Noon: "
+         << minutesBetween(morning, afternoon) << endl;
+
+    cout << "Morning Earlier: "
+         << earlier(morning, afternoon) << endl;
+
+    Time t1(10, 15);
+    Time t2(10, 15);
+
+    cout << "Same Time Difference: "
+         << minutesBetween(t1, t2) << endl;
+
+    cout << "Same Time Earlier: "
+         << earlier(t1, t2) << endl;
+}
+
+// TASK 7 - REDESIGN AND VALIDATION
+
+const int SIZE = 10;
+
+class OriginalAccount
+{
+private:
+    double transactions[SIZE];
+    int count;
+
+public:
+    OriginalAccount()
+    {
+        count = 0;
+    }
+
+    void addTransaction(double amount)
+    {
+        if (count < SIZE)
+        {
+            transactions[count] = amount;
+            count++;
+        }
+        else
+        {
+            for (int i = 0; i < SIZE - 1; i++)
+                transactions[i] = transactions[i + 1];
+
+            transactions[SIZE - 1] = amount;
+        }
+    }
+
+    void display()
+    {
+        cout << "Original Transactions: ";
+
+        for (int i = 0; i < count; i++)
+            cout << transactions[i] << " ";
+
+        cout << endl;
+    }
+};
+
+class CircularAccount
+{
+private:
+    double transactions[SIZE];
+    int count;
+    int next;
+
+public:
+    CircularAccount()
+    {
+        count = 0;
+        next = 0;
+    }
+
+    void addTransaction(double amount)
+    {
+        transactions[next] = amount;
+        next = (next + 1) % SIZE;
+
+        if (count < SIZE)
+            count++;
+    }
+
+    void display()
+    {
+        cout << "Circular Transactions: ";
+
+        int start = (next - count + SIZE) % SIZE;
+
+        for (int i = 0; i < count; i++)
+        {
+            int index = (start + i) % SIZE;
+            cout << transactions[index] << " ";
+        }
+
+        cout << endl;
+    }
+};
+
+void task7()
+{
+    cout << "\n========== TASK 7 ==========\n";
+
+    OriginalAccount original;
+    CircularAccount redesigned;
+
+    const int TOTAL = 500000;
+
+    auto start1 = high_resolution_clock::now();
+
+    for (int i = 1; i <= TOTAL; i++)
+        original.addTransaction(i);
+
+    auto end1 = high_resolution_clock::now();
+
+    auto start2 = high_resolution_clock::now();
+
+    for (int i = 1; i <= TOTAL; i++)
+        redesigned.addTransaction(i);
+
+    auto end2 = high_resolution_clock::now();
+
+    auto time1 = duration_cast<microseconds>(
+        end1 - start1).count();
+
+    auto time2 = duration_cast<microseconds>(
+        end2 - start2).count();
+
+    original.display();
+    redesigned.display();
+
+    cout << "Original Time: "
+         << time1 << " microseconds\n";
+
+    cout << "Circular Time: "
+         << time2 << " microseconds\n";
+}
+
+// MAIN FUNCTION
+
+int main()
+{
+    cout << "====================================\n";
+    cout << "       C++ ASSIGNMENT 2\n";
+    cout << "          ALL 7 TASKS\n";
+    cout << "====================================\n";
+
+    task1();
+    task2();
+    task3();
+    task4();
+    task5();
+    task6();
+    task7();
+
+    cout << "\n====================================\n";
+    cout << "       PROGRAM COMPLETED\n";
+    cout << "====================================\n";
+
+    return 0;
+}
