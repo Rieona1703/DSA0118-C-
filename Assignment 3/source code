@@ -1,1 +1,576 @@
-enden
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cmath>
+#include <stdexcept>
+#include <iomanip>
+using namespace std;
+
+// ==================== Q1: CONSTRUCTORS ====================
+
+class Book {
+    string title, author;
+    int copies;
+
+public:
+    Book() : Book("Unknown", "Unknown", 0) {}
+
+    Book(string t) : Book(t, "Unknown", 0) {}
+
+    Book(string t, string a, int c)
+        : title(t), author(a), copies(c >= 0 ? c : 0) {}
+
+    void display() const {
+        cout << "Title: " << title
+             << ", Author: " << author
+             << ", Copies: " << copies << endl;
+    }
+};
+
+// ==================== Q2: DEEP COPY ====================
+
+class Prescription {
+    int n;
+    string* medicines;
+
+public:
+    explicit Prescription(int count)
+        : n(count > 0 ? count : 0),
+          medicines(new string[n]) {}
+
+    Prescription(const Prescription& p)
+        : n(p.n), medicines(new string[p.n]) {
+        for (int i = 0; i < n; i++)
+            medicines[i] = p.medicines[i];
+    }
+
+    Prescription& operator=(const Prescription& p) {
+        if (this != &p) {
+            string* temp = new string[p.n];
+
+            for (int i = 0; i < p.n; i++)
+                temp[i] = p.medicines[i];
+
+            delete[] medicines;
+            medicines = temp;
+            n = p.n;
+        }
+        return *this;
+    }
+
+    ~Prescription() {
+        delete[] medicines;
+    }
+
+    void set(int i, string m) {
+        if (i >= 0 && i < n)
+            medicines[i] = m;
+    }
+
+    string get(int i) const {
+        if (i >= 0 && i < n)
+            return medicines[i];
+        return "";
+    }
+};
+
+// ==================== Q3: DYNAMIC CONSTRUCTOR ====================
+
+class Auditorium {
+    int rows, seats, booked;
+    char** seatMap;
+
+public:
+    Auditorium(int r, int s)
+        : rows(r > 0 ? r : 0),
+          seats(s > 0 ? s : 0),
+          booked(0), seatMap(nullptr) {
+
+        if (rows > 0 && seats > 0) {
+            seatMap = new char*[rows]();
+
+            for (int i = 0; i < rows; i++) {
+                seatMap[i] = new char[seats];
+
+                for (int j = 0; j < seats; j++)
+                    seatMap[i][j] = 'E';
+            }
+        }
+
+        cout << "Auditorium created: "
+             << rows << " x " << seats << endl;
+    }
+
+    Auditorium(const Auditorium&) = delete;
+    Auditorium& operator=(const Auditorium&) = delete;
+
+    void bookSeat(int r, int s) {
+        if (r >= 0 && r < rows &&
+            s >= 0 && s < seats &&
+            seatMap[r][s] == 'E') {
+
+            seatMap[r][s] = 'B';
+            booked++;
+            cout << "Seat booked successfully" << endl;
+        } else {
+            cout << "Invalid or unavailable seat" << endl;
+        }
+    }
+
+    void cancelSeat(int r, int s) {
+        if (r >= 0 && r < rows &&
+            s >= 0 && s < seats &&
+            seatMap[r][s] == 'B') {
+
+            seatMap[r][s] = 'E';
+            booked--;
+            cout << "Booking cancelled" << endl;
+        } else {
+            cout << "Seat is not booked" << endl;
+        }
+    }
+
+    void display() const {
+        cout << "Seat Map:" << endl;
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < seats; j++)
+                cout << seatMap[i][j] << " ";
+            cout << endl;
+        }
+    }
+
+    ~Auditorium() {
+        if (seatMap != nullptr) {
+            for (int i = 0; i < rows; i++)
+                delete[] seatMap[i];
+
+            delete[] seatMap;
+        }
+
+        cout << "Auditorium closed. Total booked seats: "
+             << booked << endl;
+    }
+};
+
+// ==================== Q4: MONEY OPERATOR OVERLOADING ====================
+
+class Money {
+    long long paise;
+
+public:
+    Money(long long r = 0, int p = 0)
+        : paise(r * 100 + p) {}
+
+    Money operator+(const Money& m) const {
+        Money temp;
+        temp.paise = paise + m.paise;
+        return temp;
+    }
+
+    Money operator-(const Money& m) const {
+        Money temp;
+        temp.paise = paise - m.paise;
+        return temp;
+    }
+
+    Money& operator+=(const Money& m) {
+        paise += m.paise;
+        return *this;
+    }
+
+    bool operator==(const Money& m) const {
+        return paise == m.paise;
+    }
+
+    bool operator<(const Money& m) const {
+        return paise < m.paise;
+    }
+
+    friend ostream& operator<<(ostream& out, const Money& m) {
+        long long value = m.paise;
+
+        out << "Rs ";
+
+        if (value < 0) {
+            out << "-";
+            value = -value;
+        }
+
+        out << value / 100 << "."
+            << setw(2) << setfill('0') << value % 100;
+
+        return out;
+    }
+
+    friend istream& operator>>(istream& in, Money& m) {
+        long long r;
+        int p;
+
+        if (in >> r >> p) {
+            if (p >= 0 && p < 100)
+                m.paise = r * 100 + p;
+            else
+                in.setstate(ios::failbit);
+        }
+
+        return in;
+    }
+};
+
+// ==================== Q5: INCREMENT AND SUBSCRIPT ====================
+
+class Time {
+    int seconds;
+
+public:
+    Time(int h = 0, int m = 0, int s = 0)
+        : seconds(h * 3600 + m * 60 + s) {}
+
+    Time& operator++() {
+        ++seconds;
+        return *this;
+    }
+
+    Time operator++(int) {
+        Time old = *this;
+        ++seconds;
+        return old;
+    }
+
+    bool operator==(const Time& t) const {
+        return seconds == t.seconds;
+    }
+
+    bool operator<(const Time& t) const {
+        return seconds < t.seconds;
+    }
+
+    void display() const {
+        int h = seconds / 3600;
+        int m = (seconds % 3600) / 60;
+        int s = seconds % 60;
+
+        cout << h << ":" << m << ":" << s << endl;
+    }
+};
+
+class Playlist {
+    vector<string> tracks;
+
+public:
+    Playlist(vector<string> t) : tracks(t) {}
+
+    string& operator[](int i) {
+        if (i < 0 || i >= (int)tracks.size())
+            throw out_of_range("Invalid playlist index");
+
+        return tracks[i];
+    }
+
+    const string& operator[](int i) const {
+        if (i < 0 || i >= (int)tracks.size())
+            throw out_of_range("Invalid playlist index");
+
+        return tracks[i];
+    }
+};
+
+// ==================== Q6: TEXT CLASS ====================
+
+class Text {
+    char* data;
+
+public:
+    Text(const char* s = "") {
+        data = new char[strlen(s) + 1];
+        strcpy(data, s);
+    }
+
+    Text(const Text& t) {
+        data = new char[strlen(t.data) + 1];
+        strcpy(data, t.data);
+    }
+
+    Text& operator=(const Text& t) {
+        if (this != &t) {
+            char* temp = new char[strlen(t.data) + 1];
+            strcpy(temp, t.data);
+
+            delete[] data;
+            data = temp;
+        }
+
+        return *this;
+    }
+
+    Text operator+(const Text& t) const {
+        size_t length = strlen(data) + strlen(t.data) + 1;
+        char* temp = new char[length];
+
+        strcpy(temp, data);
+        strcat(temp, t.data);
+
+        Text result(temp);
+        delete[] temp;
+
+        return result;
+    }
+
+    bool operator==(const Text& t) const {
+        return strcmp(data, t.data) == 0;
+    }
+
+    bool operator!=(const Text& t) const {
+        return !(*this == t);
+    }
+
+    friend ostream& operator<<(ostream& out, const Text& t) {
+        out << t.data;
+        return out;
+    }
+
+    ~Text() {
+        delete[] data;
+    }
+};
+
+// ==================== Q7: COMPLEX NUMBER CLASS ====================
+
+class Complex {
+    double real, imag;
+
+public:
+    Complex() : real(0), imag(0) {}
+
+    Complex(double r) : real(r), imag(0) {}
+
+    Complex(double r, double i) : real(r), imag(i) {}
+
+    Complex operator+(const Complex& c) const {
+        return Complex(real + c.real, imag + c.imag);
+    }
+
+    Complex operator-(const Complex& c) const {
+        return Complex(real - c.real, imag - c.imag);
+    }
+
+    Complex operator*(const Complex& c) const {
+        return Complex(
+            real * c.real - imag * c.imag,
+            real * c.imag + imag * c.real
+        );
+    }
+
+    Complex operator/(const Complex& c) const {
+        double d = c.real * c.real + c.imag * c.imag;
+
+        if (d == 0)
+            throw runtime_error("Division by zero impedance");
+
+        return Complex(
+            (real * c.real + imag * c.imag) / d,
+            (imag * c.real - real * c.imag) / d
+        );
+    }
+
+    bool operator==(const Complex& c) const {
+        const double eps = 1e-9;
+
+        return fabs(real - c.real) < eps &&
+               fabs(imag - c.imag) < eps;
+    }
+
+    double magnitude() const {
+        return sqrt(real * real + imag * imag);
+    }
+
+    friend ostream& operator<<(ostream& out, const Complex& c) {
+        out << c.real;
+
+        if (c.imag >= 0)
+            out << " + " << c.imag << "j";
+        else
+            out << " - " << -c.imag << "j";
+
+        return out;
+    }
+};
+
+// ==================== MAIN FUNCTION ====================
+
+int main() {
+
+    cout << "\n========== ASSIGNMENT 3 - CO3 ==========\n";
+
+    // Q1
+    cout << "\n========== Q1: CONSTRUCTORS ==========\n";
+
+    Book b1;
+    Book b2("C++ Programming");
+    Book b3("Data Structures", "Mark Allen", 10);
+    Book b4("Algorithms", "Thomas Cormen", -5);
+
+    b1.display();
+    b2.display();
+    b3.display();
+    b4.display();
+
+    // Q2
+    cout << "\n========== Q2: DEEP COPY ==========\n";
+
+    Prescription p(2);
+    p.set(0, "Paracetamol");
+    p.set(1, "ORS");
+
+    Prescription q = p;
+    q.set(1, "Cetirizine");
+
+    Prescription r(1);
+    r = p;
+
+    p.set(0, "Ibuprofen");
+
+    cout << p.get(0) << " " << p.get(1) << " | "
+         << q.get(0) << " " << q.get(1) << " | "
+         << r.get(0) << " " << r.get(1) << endl;
+
+    // Q3
+    cout << "\n========== Q3: DYNAMIC CONSTRUCTOR ==========\n";
+
+    Auditorium a1(2, 3);
+
+    a1.bookSeat(0, 1);
+    a1.bookSeat(1, 2);
+    a1.display();
+    a1.cancelSeat(0, 1);
+
+    {
+        Auditorium a2(1, 2);
+        a2.bookSeat(0, 0);
+    }
+
+    Auditorium* a3 = new Auditorium(2, 2);
+    a3->bookSeat(1, 1);
+    delete a3;
+
+    // Q4
+    cout << "\n========== Q4: MONEY OPERATORS ==========\n";
+
+    Money m1(120, 75), m2(79, 25);
+
+    Money m3 = m1 + m2;
+
+    cout << m3 << endl;
+    cout << boolalpha << (m3 == Money(200)) << endl;
+
+    Money x(0, 75), y(0, 50);
+    cout << x + y << endl;
+
+    cout << Money(300) - Money(100) << endl;
+
+    // Q5
+    cout << "\n========== Q5: INCREMENT AND SUBSCRIPT ==========\n";
+
+    Time t(0, 0, 5);
+
+    Time old = t++;
+    Time current = ++t;
+
+    cout << "Postfix value: ";
+    old.display();
+
+    cout << "Prefix value: ";
+    current.display();
+
+    cout << "Current time: ";
+    t.display();
+
+    Time x1(0, 1, 0), y1(0, 2, 0);
+
+    cout << "x < y: " << (x1 < y1) << endl;
+    cout << "x == y: " << (x1 == y1) << endl;
+
+    Playlist playlist({"Song One", "Song Two", "Song Three"});
+
+    cout << "Track: " << playlist[1] << endl;
+
+    try {
+        cout << playlist[5] << endl;
+    }
+    catch (const out_of_range& e) {
+        cout << e.what() << endl;
+    }
+
+    Time rollover(0, 59, 59);
+    ++rollover;
+
+    cout << "Rollover: ";
+    rollover.display();
+
+    // Q6
+    cout << "\n========== Q6: TEXT CLASS ==========\n";
+
+    Text text1("Hello");
+    Text text2(" World");
+
+    Text text3 = text1 + text2;
+
+    cout << "Text 1: " << text1 << endl;
+    cout << "Text 2: " << text2 << endl;
+    cout << "Combined: " << text3 << endl;
+
+    Text text4("Hello");
+
+    cout << "Equal: " << (text1 == text4) << endl;
+    cout << "Not Equal: " << (text1 != text2) << endl;
+
+    text1 = text1;
+
+    cout << "Self Assignment: " << text1 << endl;
+
+    // Q7
+    cout << "\n========== Q7: COMPLEX NUMBERS ==========\n";
+
+    double R = 10;
+    double omega = 100;
+    double L = 0.2;
+    double C = 0.0005;
+
+    Complex Zr(R, 0);
+    Complex Zl(0, omega * L);
+    Complex Zc(0, -1.0 / (omega * C));
+
+    cout << "Resistor impedance: " << Zr << endl;
+    cout << "Inductor impedance: " << Zl << endl;
+    cout << "Capacitor impedance: " << Zc << endl;
+
+    Complex series = Zr + Zl + Zc;
+
+    cout << "Series impedance: " << series << endl;
+    cout << "Series magnitude: " << series.magnitude() << endl;
+
+    Complex numerator = Zr * Zl * Zc;
+    Complex denominator = Zr * Zl + Zl * Zc + Zc * Zr;
+
+    try {
+        Complex parallel = numerator / denominator;
+
+        cout << "Parallel impedance: " << parallel << endl;
+        cout << "Parallel magnitude: "
+             << parallel.magnitude() << endl;
+
+        Complex zero(0, 0);
+        Complex result = Zr / zero;
+
+        cout << result << endl;
+    }
+    catch (const exception& e) {
+        cout << "Error: " << e.what() << endl;
+    }
+
+    cout << "\n========== PROGRAM COMPLETED ==========\n";
+
+    return 0;
+}
