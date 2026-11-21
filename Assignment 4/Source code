@@ -1,0 +1,376 @@
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+using namespace std;
+static void sec(const char* t) { cout << "\n--- " << t << " ---\n"; }
+static void head(const char* t) { cout.unsetf(ios::floatfield); cout << setprecision(6) << "\n===== " << t << " =====\n"; }
+
+// ======================= TASK 1: payroll hierarchy =======================
+namespace t1 {
+class Staff {                                        // abstract base
+protected: string name; int id;
+public:
+    Staff(string n, int i) : name(move(n)), id(i) {}
+    virtual ~Staff() = default;
+    virtual double pay() const = 0;
+    virtual string role() const = 0;
+    void print() const { cout << role() << " " << id << " " << name << " Rs." << pay() << "\n"; }
+};
+class SalariedStaff : public Staff {                 // DA rule written once
+protected:
+    double basic; static constexpr double DA = 0.42;
+    double withDA() const { return basic * (1 + DA); }
+public: SalariedStaff(string n, int i, double b) : Staff(move(n), i), basic(b) {}
+};
+class Professor : public SalariedStaff {
+    double research;
+public:
+    Professor(string n, int i, double b, double r) : SalariedStaff(move(n), i, b), research(r) {}
+    double pay() const override { return withDA() + research; }
+    string role() const override { return "Professor"; }
+};
+struct LabAssistant : SalariedStaff {
+    using SalariedStaff::SalariedStaff;
+    double pay() const override { return withDA(); }
+    string role() const override { return "LabAssistant"; }
+};
+class GuestFaculty : public Staff {
+    double hours, rate;
+public:
+    GuestFaculty(string n, int i, double h, double r) : Staff(move(n), i), hours(h), rate(r) {}
+    double pay() const override { return hours * rate; }
+    string role() const override { return "GuestFaculty"; }
+};
+enum Type { PROF, LAB, GUEST };                      // alternative: one class + switch
+struct OneStaff {
+    Type type; string name; int id; double basic = 0, research = 0, hours = 0, rate = 0;
+    double pay() const { switch (type) { case PROF: return basic * 1.42 + research;
+        case LAB: return basic * 1.42; default: return hours * rate; } }
+};
+void run() {
+    vector<unique_ptr<Staff>> all; double total = 0;
+    all.push_back(make_unique<Professor>("Meena", 101, 50000, 8000));
+    all.push_back(make_unique<LabAssistant>("Ravi", 102, 20000));
+    all.push_back(make_unique<GuestFaculty>("Anita", 103, 40, 1500));
+    for (auto& s : all) { s->print(); total += s->pay(); }      // one loop for all staff
+    cout << "Total payroll: Rs." << total << "\n";
+    sec("Alternative: one class + switch");
+    cout << OneStaff{PROF, "Meena", 101, 50000, 8000}.pay() << " sizeof(OneStaff)=" << sizeof(OneStaff)
+         << " Professor=" << sizeof(Professor) << " Lab=" << sizeof(LabAssistant) << " Guest=" << sizeof(GuestFaculty) << "\n";
+}
+}
+
+// ======================= TASK 2: university hierarchy =======================
+namespace t2 {
+struct P1 { P1() { cout << "Person "; } };                       // predict: virtual diamond
+struct S1 : virtual P1 { S1() { cout << "Student "; } };
+struct F1 : virtual P1 { F1() { cout << "Staff "; } };
+struct T1 : S1, F1 { T1() { cout << "TA "; } };
+struct P2 { P2() { cout << "Person "; } };                       // predict: no virtual
+struct S2 : P2 { S2() { cout << "Student "; } };
+struct F2 : P2 { F2() { cout << "Staff "; } };
+struct T2 : S2, F2 { T2() { cout << "TA "; } };
+
+class Person {
+protected: string name; int id; string phone;
+public:
+    Person(string n, int i, string p) : name(move(n)), id(i), phone(move(p)) {}
+    virtual ~Person() = default;
+    string getName() const { return name; }
+};
+class Student : public virtual Person {
+protected: string programme; double cgpa;
+public: Student(string n, int i, string p, string g, double c) : Person(n, i, p), programme(g), cgpa(c) {}
+};
+class Staff : public virtual Person {
+protected: string department; double salary;
+public: Staff(string n, int i, string p, string d, double s) : Person(n, i, p), department(d), salary(s) {}
+};
+struct TeachingAssistant : Student, Staff {                      // most-derived builds the virtual base
+    TeachingAssistant(string n, int i, string p, string g, double c, string d, double s)
+        : Person(n, i, p), Student(n, i, p, g, c), Staff(n, i, p, d, s) {}
+};
+class ResearchScholar : public Student {
+    double fellowship;
+public: ResearchScholar(string n, int i, string p, string g, double c, double f)
+        : Person(n, i, p), Student(n, i, p, g, c), fellowship(f) {}
+};
+struct CP { string name; };                                      // alternative: composition
+struct CStudent : CP { double cgpa; };
+struct CStaff : CP { double salary; };
+struct CTA { CStudent s; CStaff f; };                            // two Person parts
+struct VP { string name; };
+struct VStudent : virtual VP { double cgpa; };
+struct VStaff : virtual VP { double salary; };
+struct VTA : VStudent, VStaff {};                                // one Person part
+void run() {
+    sec("Predict (virtual)"); T1 a; cout << "\n";
+    sec("Predict (no virtual)"); T2 b; cout << "\n";
+    sec("Designed classes");
+    TeachingAssistant ta("Kavya", 1, "99999", "MCA", 8.5, "CSE", 25000);
+    ResearchScholar rs("Arun", 2, "88888", "PhD", 9.0, 30000);
+    cout << ta.getName() << " " << rs.getName() << "  sizeof(TA)=" << sizeof(ta) << "\n";   // no ambiguity
+    sec("Alternative: composition vs virtual");
+    CTA c; c.s.name = "A"; c.f.name = "B"; VTA v; v.name = "A";
+    cout << "composition sizeof=" << sizeof(CTA) << "  virtual sizeof=" << sizeof(VTA) << "  names: " << c.s.name << c.f.name << v.name << "\n";
+}
+}
+
+// ======================= TASK 3: constructors and member classes =======================
+namespace t3 {
+struct Address { string city; int pin;
+    Address(string c, int p) : city(c), pin(p) { cout << "Address "; } ~Address() { cout << "~Address "; } };
+struct Course { string code;
+    Course(string c) : code(c) { cout << "Course "; } ~Course() { cout << "~Course "; } };
+namespace v {                                                    // WITH virtual bases
+struct Person { string name; Address addr;
+    Person(string n, string c, int p) : name(n), addr(c, p) { cout << "Person "; } virtual ~Person() { cout << "~Person "; } };
+struct Student : virtual Person { Course course;
+    Student(string n, string c, int p, string cc) : Person(n, c, p), course(cc) { cout << "Student "; } ~Student() { cout << "~Student "; } };
+struct Staff : virtual Person { string dept;
+    Staff(string n, string c, int p, string d) : Person(n, c, p), dept(d) { cout << "Staff "; } ~Staff() { cout << "~Staff "; } };
+struct TA : Student, Staff {
+    TA(string n, string c, int p, string cc, string d) : Person(n, c, p), Student(n, c, p, cc), Staff(n, c, p, d) { cout << "TA "; }
+    ~TA() { cout << "~TA "; } };
+}
+namespace nv {                                                   // WITHOUT virtual
+struct Person { string name; Address addr;
+    Person(string n, string c, int p) : name(n), addr(c, p) { cout << "Person "; } virtual ~Person() { cout << "~Person "; } };
+struct Student : Person { Course course;
+    Student(string n, string c, int p, string cc) : Person(n, c, p), course(cc) { cout << "Student "; } ~Student() { cout << "~Student "; } };
+struct Staff : Person { string dept;
+    Staff(string n, string c, int p, string d) : Person(n, c, p), dept(d) { cout << "Staff "; } ~Staff() { cout << "~Staff "; } };
+struct TA : Student, Staff {
+    TA(string n, string c, int p, string cc, string d) : Student(n, c, p, cc), Staff(n, c, p, d) { cout << "TA "; }
+    ~TA() { cout << "~TA "; } };
+}
+template <class S, class F, class T> void trace() {
+    { S s("A", "Salem", 636001, "CS101"); cout << "\n"; } cout << "\n";
+    { F f("B", "Salem", 636001, "CSE"); cout << "\n"; } cout << "\n";
+    { T t("C", "Salem", 636001, "CS101", "CSE"); cout << "\n"; } cout << "\n";
+    cout << "sizeof(TA)=" << sizeof(T) << "\n";
+}
+struct Engine { Engine() { cout << "Engine "; } ~Engine() { cout << "~Engine "; } };     // predict
+struct Vehicle { Vehicle() { cout << "Vehicle "; } ~Vehicle() { cout << "~Vehicle "; } };
+struct Car : Vehicle { Engine e; Car() { cout << "Car "; } ~Car() { cout << "~Car "; } };
+
+class Person { protected: string name; int age;                  // complete the code
+public: Person(const string& n, int a) : name(n), age(a) {} };
+class Addr2 { string city; int pin;
+public: Addr2(const string& c, int p) : city(c), pin(p) {}
+    string str() const { return city + "-" + to_string(pin); } };
+class Student2 : public Person {
+    long long regNo; Addr2 home;
+public:
+    Student2(const string& n, int a, long long r, const string& c, int p) : Person(n, a), regNo(r), home(c, p) {}  // TODO 1
+    void print() const { cout << regNo << ' ' << name << " (" << age << ") " << home.str() << '\n'; }
+};
+class Student3 {                                                 // alternative: pointer member
+    long long regNo; Addr2* home;
+public:
+    Student3(long long r, const string& c, int p) : regNo(r), home(new Addr2(c, p)) {}
+    Student3(const Student3& o) : regNo(o.regNo), home(new Addr2(*o.home)) {}      // deep copy
+    Student3& operator=(const Student3&) = delete;
+    ~Student3() { delete home; }
+    void print() const { cout << regNo << ' ' << home->str() << '\n'; }
+};
+void run() {
+    sec("Order with virtual bases"); trace<v::Student, v::Staff, v::TA>();
+    sec("Order without virtual"); trace<nv::Student, nv::Staff, nv::TA>();
+    sec("Predict: Vehicle/Engine/Car"); { Car c; cout << "| "; } cout << "\n";
+    sec("Complete the code"); Student2("Kavya", 19, 192311001, "Salem", 636001).print();
+    sec("Alternative: pointer member"); Student3 a(1, "Salem", 636001); Student3 b = a; b.print();
+}
+}
+
+// ======================= TASK 4: pointers to derived classes =======================
+namespace t4 {
+struct A1 { double rate() const { return 3.5; } virtual double vrate() const { return 3.5; } virtual ~A1() = default; };
+struct S1 : A1 { double rate() const { return 4.0; } double vrate() const override { return 4.0; } };
+class Account {                                                  // repaired
+public:
+    Account() = default;
+    Account(const Account&) = delete;                            // forbid slicing copies
+    virtual double rate() const { return 3.5; }
+    virtual ~Account() { cout << "~Account\n"; }
+};
+class SeniorAccount : public Account {
+    double* history = new double[100];
+public:
+    double rate() const override { return 4.0; }
+    ~SeniorAccount() override { cout << "~SeniorAccount\n"; delete[] history; }
+};
+void run() {
+    sec("Predict: static vs dynamic binding, slicing");
+    S1 s; A1* p = &s; A1 copy = s;
+    cout << p->rate() << ' ' << p->vrate() << ' ' << copy.vrate() << '\n';
+    sec("Repaired: virtual rate() and virtual destructor");
+    Account* accounts[2] = { new Account, new SeniorAccount };
+    for (Account* a : accounts) cout << a->rate() << "\n";
+    for (Account* a : accounts) delete a;                        // runs ~SeniorAccount first
+    SeniorAccount sa; Account& ref = sa; cout << ref.rate() << "\n";   // reference: no slicing
+    sec("Alternative: unique_ptr in a vector");
+    vector<unique_ptr<Account>> v;
+    v.push_back(make_unique<Account>()); v.push_back(make_unique<SeniorAccount>());
+    for (auto& a : v) cout << a->rate() << "\n";
+}                                                                // vector then sa destroyed here
+}
+
+// ======================= TASK 5: pointers to objects and this =======================
+namespace t5 {
+class Cart {
+    string items[10]; double prices[10]; int n = 0; double discount = 0;
+public:
+    Cart& add(const string& item, double price) { if (n < 10) { items[n] = item; prices[n] = price; ++n; } return *this; }
+    Cart& setDiscount(double discount) { this->discount = discount; return *this; }
+    double total() const { double t = 0; for (int i = 0; i < n; ++i) t += prices[i]; return t * (100 - discount) / 100; }
+};
+struct ByVal { int n = 0; ByVal add() { ++n; return *this; } };  // returns a COPY
+void run() {
+    cout << fixed << setprecision(2);
+    Cart a; a.add("Rice", 60).add("Dal", 120).setDiscount(10);   // (a) direct + chaining
+    Cart* p = &a; p->add("Oil", 180);                            // (b) pointer
+    cout << "a: " << a.total() << "  via p: " << p->total() << "\n";
+    Cart& r = a; r.add("Salt", 20); cout << "after ref: " << r.total() << "\n";   // (c) reference
+    Cart* h = new Cart; h->add("Tea", 100).setDiscount(5);       // (d) new / delete
+    cout << "heap: " << h->total() << "\n"; delete h;
+    Cart* carts[3] = { new Cart, new Cart, new Cart };           // array of pointers
+    carts[0]->add("A", 100); carts[1]->add("B", 300).add("C", 50); carts[2]->add("D", 200);
+    Cart** best = carts;
+    for (Cart** q = carts + 1; q < carts + 3; ++q) if ((*q)->total() > (*best)->total()) best = q;
+    cout << "highest cart index " << (best - carts) << " total " << (*best)->total() << "\n";
+    for (Cart* c : carts) delete c;
+    sec("Returning by value breaks chaining");
+    ByVal bv; bv.add().add().add(); cout << bv.n << " (expected 3 with a reference return)\n";
+    sec("Alternative: vector<Cart> invalidates pointers");
+    vector<Cart> v(1); Cart* first = &v[0];
+    for (int i = 0; i < 100; ++i) v.emplace_back();
+    cout << "pointer still valid? " << (first == &v[0] ? "yes" : "NO (dangling)") << "  capacity=" << v.capacity() << "\n";
+}
+}
+
+// ======================= TASK 6: vehicle rental fleet =======================
+namespace t6 {
+struct Date { int d = 1, m = 1, y = 2026; string str() const { return to_string(d) + "/" + to_string(m) + "/" + to_string(y); } };
+class Vehicle {                                                  // abstract base
+protected: string reg; double rate; bool rented = false;
+public:
+    Vehicle(string r, double d) : reg(move(r)), rate(d) {}
+    virtual ~Vehicle() = default;
+    virtual double charge(int days, int late) const = 0;         // pure virtual
+    virtual string type() const = 0;
+    virtual void show() const { cout << type() << " " << reg << " Rs." << rate << "/day " << (rented ? "[RENTED]" : "[AVAILABLE]"); }
+    const string& regNo() const { return reg; }
+    bool isRented() const { return rented; }
+    void setRented(bool b) { rented = b; }
+};
+struct Bicycle : Vehicle {
+    using Vehicle::Vehicle;
+    double charge(int d, int late) const override { return rate * d + late * rate; }
+    string type() const override { return "Bicycle"; }
+};
+class MotorVehicle : public Vehicle {                            // abstract: fuel + service date (member class)
+protected: double fuel; Date service;
+public:
+    MotorVehicle(string r, double d, double f, Date s) : Vehicle(move(r), d), fuel(f), service(s) {}
+    void show() const override { Vehicle::show(); cout << " fuel/charge=" << fuel << "% service=" << service.str(); }
+};
+struct TwoWheeler : MotorVehicle {
+    using MotorVehicle::MotorVehicle;
+    double charge(int d, int late) const override { return rate * d + late * rate * 1.5 + 6.0 * (100 - fuel) * 0.05; }
+    string type() const override { return "TwoWheeler"; }
+};
+class Car : public MotorVehicle {
+protected: int seats;
+public:
+    Car(string r, double d, double f, Date s, int st) : MotorVehicle(move(r), d, f, s), seats(st) {}
+    double charge(int d, int late) const override { return rate * d + late * rate * 1.5 + 6.0 * (100 - fuel) * 0.4; }
+    string type() const override { return "Car"; }
+};
+class ElectricCar : public Car {
+    double kwh;
+public:
+    ElectricCar(string r, double d, double f, Date s, int st, double k) : Car(move(r), d, f, s, st), kwh(k) {}
+    double charge(int d, int late) const override { return rate * d + late * rate * 1.5 + 9.0 * kwh * (100 - fuel) / 100; }
+    string type() const override { return "ElectricCar"; }
+};
+class ElectricBus : public MotorVehicle {                        // NEW type: no existing class is edited
+    double kwh;
+public:
+    ElectricBus(string r, double d, double f, Date s, double k) : MotorVehicle(move(r), d, f, s), kwh(k) {}
+    double charge(int d, int late) const override { return rate * d + late * rate * 2.0 + 7.5 * kwh * (100 - fuel) / 100; }
+    string type() const override { return "ElectricBus"; }
+};
+class Fleet {
+    vector<unique_ptr<Vehicle>> v;                               // base-class pointers
+    Vehicle* find(const string& r) { for (auto& p : v) if (p->regNo() == r) return p.get(); return nullptr; }
+public:
+    void add(unique_ptr<Vehicle> p) { v.push_back(move(p)); }
+    bool rent(const string& r) { Vehicle* p = find(r); if (!p || p->isRented()) return false; p->setRented(true); return true; }
+    double giveBack(const string& r, int days, int late) {
+        Vehicle* p = find(r); if (!p || !p->isRented()) return -1;
+        p->setRented(false); return p->charge(days, late);       // virtual call
+    }
+    void list() const { for (auto& p : v) { p->show(); cout << "\n"; } }
+};
+enum VType { BICYCLE, TWO, CAR, ECAR };                          // alternative: one class + switch
+struct OneVehicle {
+    VType type; string reg; double rate, fuel = 0, kwh = 0; int seats = 0, sd = 0, sm = 0, sy = 0;
+    double charge(int d, int late) const { switch (type) {
+        case BICYCLE: return rate * d + late * rate;
+        case TWO: return rate * d + late * rate * 1.5 + 6.0 * (100 - fuel) * 0.05;
+        case CAR: return rate * d + late * rate * 1.5 + 6.0 * (100 - fuel) * 0.4;
+        default: return rate * d + late * rate * 1.5 + 9.0 * kwh * (100 - fuel) / 100; } }
+};
+struct V { virtual double charge(int d) const = 0; virtual ~V() = default; };       // benchmark
+template <int K> struct Impl : V { double charge(int d) const override { return d * (K == 0 ? 100.0 : K == 1 ? 300.0 : K == 2 ? 1500.0 : 2000.0) + K; } };
+inline double sw(int t, int d) { switch (t) { case 0: return d * 100.0; case 1: return d * 300.0 + 1; case 2: return d * 1500.0 + 2; default: return d * 2000.0 + 3; } }
+void run() {
+    Fleet f;
+    f.add(make_unique<Bicycle>("BC-01", 100));
+    f.add(make_unique<TwoWheeler>("TW-01", 300, 40, Date{1, 12, 2026}));
+    f.add(make_unique<Car>("CR-01", 1500, 50, Date{15, 12, 2026}, 5));
+    f.add(make_unique<ElectricCar>("EC-01", 2000, 30, Date{10, 1, 2027}, 5, 40));
+    sec("Initial fleet"); f.list();
+    sec("Rent");
+    for (string r : {"BC-01", "TW-01", "CR-01", "EC-01"}) cout << "Rent " << r << ": " << (f.rent(r) ? "ok" : "fail") << "\n";
+    cout << "Rent BC-01 again: " << (f.rent("BC-01") ? "ok" : "fail (already rented)") << "\n";
+    sec("Return with late charge");
+    cout << "BC-01 (2 days, 0 late): Rs." << f.giveBack("BC-01", 2, 0) << "\n";
+    cout << "TW-01 (3 days, 1 late): Rs." << f.giveBack("TW-01", 3, 1) << "\n";
+    cout << "CR-01 (2 days, 2 late): Rs." << f.giveBack("CR-01", 2, 2) << "\n";
+    cout << "EC-01 (1 day, 1 late):  Rs." << f.giveBack("EC-01", 1, 1) << "\n";
+    sec("Add ElectricBus without changing existing classes");
+    f.add(make_unique<ElectricBus>("EB-01", 5000, 60, Date{20, 2, 2027}, 200)); f.rent("EB-01");
+    cout << "EB-01 (1 day, 1 late): Rs." << f.giveBack("EB-01", 1, 1) << "\n"; f.list();
+    sec("Alternative: type code + switch");
+    cout << OneVehicle{CAR, "CR-01", 1500, 50}.charge(2, 2) << "  sizeof(OneVehicle)=" << sizeof(OneVehicle) << "\n";
+    sec("Benchmark: virtual vs switch");
+    const int N = 4000000; vector<unique_ptr<V>> vs; vector<int> ts;
+    for (int i = 0; i < N; ++i) { int t = (i * 7 + i / 3) % 4; ts.push_back(t);
+        if (t == 0) vs.push_back(make_unique<Impl<0>>()); else if (t == 1) vs.push_back(make_unique<Impl<1>>());
+        else if (t == 2) vs.push_back(make_unique<Impl<2>>()); else vs.push_back(make_unique<Impl<3>>()); }
+    auto t0 = chrono::steady_clock::now(); double s1 = 0, s2 = 0;
+    for (int k = 1; k <= 10; ++k) for (auto& p : vs) s1 += p->charge(k);
+    auto t1 = chrono::steady_clock::now();
+    for (int k = 1; k <= 10; ++k) for (int t : ts) s2 += sw(t, k);
+    auto t2 = chrono::steady_clock::now();
+    cout << "virtual: " << chrono::duration<double, milli>(t1 - t0).count() << " ms   switch: "
+         << chrono::duration<double, milli>(t2 - t1).count() << " ms  (" << N * 10 << " calls)\n";
+    if (s1 < 0 || s2 < 0) cout << "never\n";
+}
+}
+
+int main() {
+    cout << "====================================\n        C++ ASSIGNMENT 4 (CO4)\n          ALL 6 TASKS\n====================================\n";
+    head("TASK 1"); t1::run();
+    head("TASK 2"); t2::run();
+    head("TASK 3"); t3::run();
+    head("TASK 4"); t4::run();
+    head("TASK 5"); t5::run();
+    head("TASK 6"); t6::run();
+    cout << "\n====================================\n        PROGRAM COMPLETED\n====================================\n";
+}
