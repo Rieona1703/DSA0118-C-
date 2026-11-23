@@ -1,0 +1,542 @@
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
+#include <stdexcept>
+#include <algorithm>
+#include <chrono>
+#include <iomanip>
+#include <limits>
+#include <functional>
+using namespace std;
+using namespace chrono;
+
+// Exception classes
+class BillingError : public runtime_error {
+public:
+    using runtime_error::runtime_error;
+};
+
+class ClaimError : public BillingError {
+public:
+    using BillingError::BillingError;
+};
+
+class PackageError : public BillingError {
+public:
+    using BillingError::BillingError;
+};
+
+// Abstract Bill class
+class Bill {
+protected:
+    string patient;
+
+    static void check(double amount) {
+        if (amount < 0)
+            throw BillingError("Negative charge");
+    }
+
+public:
+    explicit Bill(string p) : patient(p) {
+        if (p.empty())
+            throw BillingError("Missing patient record");
+    }
+
+    virtual ~Bill() = default;
+
+    virtual double total() const = 0;
+    virtual string type() const = 0;
+
+    void print() const {
+        cout << type() << " " << patient
+             << ": " << total() << endl;
+    }
+};
+
+// Outpatient bill
+class OutPatient : public Bill {
+    double consultation, tests;
+
+public:
+    OutPatient(string p, double c, double t)
+        : Bill(p), consultation(c), tests(t) {
+        check(c);
+        check(t);
+    }
+
+    double total() const override {
+        return consultation + tests;
+    }
+
+    string type() const override {
+        return "OP";
+    }
+};
+
+// Inpatient bill
+class InPatient : public Bill {
+    int days;
+    double rate, surgery;
+
+public:
+    InPatient(string p, int d, double r, double s)
+        : Bill(p), days(d), rate(r), surgery(s) {
+        if (d < 0)
+            throw BillingError("Negative days");
+        check(r);
+        check(s);
+    }
+
+    double total() const override {
+        return days * rate + surgery;
+    }
+
+    string type() const override {
+        return "IP";
+    }
+};
+
+// Daycare bill
+class DayCare : public Bill {
+    double package;
+
+public:
+    DayCare(string p, double amount)
+        : Bill(p), package(amount) {
+        check(amount);
+    }
+
+    double total() const override {
+        return package;
+    }
+
+    string type() const override {
+        return "DayCare";
+    }
+};
+
+// Emergency bill
+class Emergency : public Bill {
+    double base, hourlyRate;
+    int hours;
+
+public:
+    Emergency(string p, double b, double r, int h)
+        : Bill(p), base(b), hourlyRate(r), hours(h) {
+        check(b);
+        check(r);
+        if (h < 0)
+            throw BillingError("Negative hours");
+    }
+
+    double total() const override {
+        return base + hourlyRate * hours;
+    }
+
+    string type() const override {
+        return "Emergency";
+    }
+};
+
+// New bill type - B4 extension
+class DentalBill : public Bill {
+    double treatment;
+
+public:
+    DentalBill(string p, double t)
+        : Bill(p), treatment(t) {
+        check(t);
+    }
+
+    double total() const override {
+        return treatment;
+    }
+
+    string type() const override {
+        return "Dental";
+    }
+};
+
+// Abstract Payer class
+class Payer {
+public:
+    virtual ~Payer() = default;
+    virtual string name() const = 0;
+    virtual double amountCovered(const Bill& b) const = 0;
+};
+
+class SelfPay : public Payer {
+public:
+    string name() const override {
+        return "SelfPay";
+    }
+
+    double amountCovered(const Bill&) const override {
+        return 0;
+    }
+};
+
+class Insurance : public Payer {
+    double limit, copay;
+
+public:
+    Insurance(double l, double c)
+        : limit(l), copay(c) {
+        if (l < 0 || c < 0 || c > 100)
+            throw BillingError("Invalid insurance policy");
+    }
+
+    string name() const override {
+        return "Insurance";
+    }
+
+    double amountCovered(const Bill& b) const override {
+        return min(limit, b.total() * (1 - copay / 100));
+    }
+};
+
+class GovernmentScheme : public Payer {
+public:
+    string name() const override {
+        return "Government";
+    }
+
+    double amountCovered(const Bill& b) const override {
+        if (b.type() == "DayCare")
+            return min(12000.0, b.total());
+
+        if (b.type() == "IP")
+            return min(20000.0, b.total());
+
+        throw PackageError("Unknown government package");
+    }
+};
+
+// New payer - B4 extension
+class CorporatePayer : public Payer {
+public:
+    string name() const override {
+        return "Corporate";
+    }
+
+    double amountCovered(const Bill& b) const override {
+        return b.total() * 0.75;
+    }
+};
+
+// Claim approval and rethrowing
+double approve(double billed, double cover) {
+    if (billed < 0 || cover < 0)
+        throw invalid_argument("negative amount");
+
+    if (billed > cover)
+        throw ClaimError("exceeds cover");
+
+    return billed;
+}
+
+double settle(double billed, double cover) {
+    try {
+        return approve(billed, cover);
+    }
+    catch (const ClaimError& e) {
+        cout << "audit: " << e.what() << endl;
+        throw;
+    }
+}
+
+// RAII demonstration
+struct Guard {
+    string name;
+
+    explicit Guard(string n) : name(n) {}
+
+    ~Guard() noexcept {
+        cout << "~" << name << " ";
+    }
+};
+
+void testUnwinding() {
+    Guard g("function");
+    throw 42;
+}
+
+// Switch-based bill
+struct SimpleBill {
+    int type;
+
+    double total() const {
+        switch (type) {
+            case 0: return 1700;
+            case 1: return 47500;
+            default: return 0;
+        }
+    }
+};
+
+// Validation methods
+bool validateCode(int amount) {
+    return amount >= 0;
+}
+
+void validateException(int amount) {
+    if (amount < 0)
+        throw invalid_argument("negative");
+}
+
+// B3 virtual vs switch benchmark
+void benchmarkBills(size_t n) {
+    vector<unique_ptr<Bill>> bills;
+    vector<SimpleBill> simple;
+
+    bills.reserve(n);
+    simple.reserve(n);
+
+    for (size_t i = 0; i < n; i++) {
+        if (i % 2 == 0)
+            bills.push_back(
+                make_unique<OutPatient>("Test", 500, 1200));
+        else
+            bills.push_back(
+                make_unique<InPatient>("Test", 3, 2500, 40000));
+
+        simple.push_back({static_cast<int>(i % 2)});
+    }
+
+    double sum1 = 0, sum2 = 0;
+
+    auto start = steady_clock::now();
+
+    for (const auto& b : bills)
+        sum1 += b->total();
+
+    auto mid = steady_clock::now();
+
+    for (const auto& b : simple)
+        sum2 += b.total();
+
+    auto end = steady_clock::now();
+
+    cout << "\nBills: " << n << endl;
+    cout << "Virtual Total: " << sum1 << endl;
+    cout << "Switch Total: " << sum2 << endl;
+    cout << "Results Match: "
+         << (sum1 == sum2 ? "YES" : "NO") << endl;
+
+    cout << "Virtual Time (ms): "
+         << duration<double, milli>(mid - start).count()
+         << endl;
+
+    cout << "Switch Time (ms): "
+         << duration<double, milli>(end - mid).count()
+         << endl;
+}
+
+// Exception vs return code benchmark
+void benchmarkErrors(int invalidPercent) {
+    const int N = 1000000;
+    int valid1 = 0, valid2 = 0;
+
+    auto start = steady_clock::now();
+
+    for (int i = 0; i < N; i++) {
+        int amount = (i % 100 < invalidPercent) ? -1 : 100;
+
+        if (validateCode(amount))
+            valid1++;
+    }
+
+    auto mid = steady_clock::now();
+
+    for (int i = 0; i < N; i++) {
+        int amount = (i % 100 < invalidPercent) ? -1 : 100;
+
+        try {
+            validateException(amount);
+            valid2++;
+        }
+        catch (const invalid_argument&) {
+        }
+    }
+
+    auto end = steady_clock::now();
+
+    cout << "\nInvalid Claims: " << invalidPercent << "%" << endl;
+
+    cout << "Return Code Time (ms): "
+         << duration<double, milli>(mid - start).count()
+         << endl;
+
+    cout << "Exception Time (ms): "
+         << duration<double, milli>(end - mid).count()
+         << endl;
+
+    cout << "Valid Counts: " << valid1
+         << ", " << valid2 << endl;
+}
+
+// Main program
+int main() {
+    cout << fixed << setprecision(3);
+
+    cout << "\n===== TASK A1 & B1: BILL HIERARCHY =====\n";
+
+    vector<unique_ptr<Bill>> bills;
+
+    bills.push_back(
+        make_unique<OutPatient>("Ravi", 500, 1200));
+    bills.push_back(
+        make_unique<InPatient>("Meena", 3, 2500, 40000));
+    bills.push_back(
+        make_unique<DayCare>("Arun", 15000));
+    bills.push_back(
+        make_unique<Emergency>("Priya", 2000, 500, 4));
+
+    double sum = 0;
+
+    for (const auto& b : bills) {
+        b->print();
+        sum += b->total();
+    }
+
+    cout << "Grand Total: " << sum << endl;
+
+    cout << "\n===== TASK A2: RUNTIME BINDING =====\n";
+
+    Bill* ptr = bills[0].get();
+    cout << "Base Pointer Calls: ";
+    ptr->print();
+
+    cout << "\n===== TASK A3: PAYER CLASSES =====\n";
+
+    SelfPay self;
+    Insurance insurance(50000, 10);
+    GovernmentScheme govt;
+    CorporatePayer corporate;
+
+    vector<Payer*> payers = {
+        &self, &insurance, &govt, &corporate
+    };
+
+    for (const auto& b : bills) {
+        cout << "\n" << b->type()
+             << " Bill: " << b->total() << endl;
+
+        for (Payer* p : payers) {
+            try {
+                cout << p->name() << " Covered: "
+                     << p->amountCovered(*b) << endl;
+            }
+            catch (const exception& e) {
+                cout << p->name() << " Error: "
+                     << e.what() << endl;
+            }
+        }
+    }
+
+    cout << "\n===== TASK A4: EXCEPTION HANDLING =====\n";
+
+    try {
+        OutPatient invalid("Test", -500, 100);
+    }
+    catch (const BillingError& e) {
+        cout << "Billing Error: " << e.what() << endl;
+    }
+
+    try {
+        OutPatient invalid("", 500, 100);
+    }
+    catch (const BillingError& e) {
+        cout << "Patient Error: " << e.what() << endl;
+    }
+
+    cout << "\n===== TASK A5: STACK UNWINDING =====\n";
+
+    try {
+        Guard mainGuard("main");
+        testUnwinding();
+        cout << "not printed";
+    }
+    catch (int x) {
+        cout << "caught " << x << endl;
+    }
+
+    cout << "\n===== TASK B2: CLAIM VALIDATION =====\n";
+
+    double cases[][2] = {
+        {40000, 50000},
+        {60000, 50000},
+        {-1, 50000}
+    };
+
+    for (auto& c : cases) {
+        try {
+            cout << "approved "
+                 << settle(c[0], c[1]) << endl;
+        }
+        catch (const ClaimError& e) {
+            cout << "claim rejected: "
+                 << e.what() << endl;
+        }
+        catch (const exception& e) {
+            cout << "error: " << e.what() << endl;
+        }
+    }
+
+    cout << "\n===== TASK B2: INVALID TEXT =====\n";
+
+    try {
+        double value = stod("invalid");
+        cout << value << endl;
+    }
+    catch (const invalid_argument& e) {
+        cout << "Invalid number: " << e.what() << endl;
+    }
+
+    cout << "\n===== TASK B2: MEMORY FAILURE =====\n";
+
+    try {
+        size_t huge = vector<int>().max_size();
+        vector<int> memory;
+        memory.resize(huge);
+        cout << "Allocation succeeded" << endl;
+    }
+    catch (const bad_alloc&) {
+        cout << "Memory allocation failed" << endl;
+    }
+    catch (const length_error&) {
+        cout << "Requested array is too large" << endl;
+    }
+
+    cout << "\n===== TASK B3: PERFORMANCE =====\n";
+
+    try {
+        for (size_t n : {
+            10ULL, 1000ULL, 1000000ULL, 10000000ULL
+        }) {
+            benchmarkBills(n);
+        }
+    }
+    catch (const bad_alloc&) {
+        cout << "Insufficient memory for benchmark" << endl;
+    }
+
+    cout << "\n===== EXCEPTION COST =====\n";
+
+    for (int rate : {0, 1, 50})
+        benchmarkErrors(rate);
+
+    cout << "\n===== TASK B4: EXTENSION =====\n";
+
+    auto dental = make_unique<DentalBill>("Kumar", 12000);
+    dental->print();
+
+    cout << "Corporate Covered: "
+         << corporate.amountCovered(*dental) << endl;
+
+    cout << "\n===== ALL TASKS COMPLETED =====\n";
+
+    return 0;
+}
